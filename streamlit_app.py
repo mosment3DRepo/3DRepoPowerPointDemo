@@ -5,8 +5,6 @@ import json
 import os
 from io import BytesIO
 
-output = BytesIO()
-
 teamspace = st.text_input("Teamspace:")
 model = st.text_input("Model:")
 apiKey = st.text_input("API Key:")
@@ -54,10 +52,13 @@ def insert(domain,teamspace,model,apiKey,output):
         except:
             continue
     fileName = output + '.pptx'
-    prs.save(output)
+    outputFile = BytesIO()
+    prs.save(outputFile)
+    outputFile.seek(0)
+
     st.download_button(
         label="Download data as Powerpoint",
-        data=output,
+        data=outputFile,
         file_name=fileName
     )
 
