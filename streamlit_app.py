@@ -18,7 +18,7 @@ cookies = EncryptedCookieManager(
 def get_3dreporisks(domain,teamspace,model,api_key):
     url = domain + "/api/"+teamspace+"/"+model+"/risks?key="+api_key
     headers = {
-    'Cookie': 'connect.sid=' + cookies['connect.sid']
+    'Cookie': cookies
     }
     risk_response = requests.get(url, headers=headers)
     risk_response_object = json.loads(risk_response.text)
@@ -27,7 +27,7 @@ def get_3dreporisks(domain,teamspace,model,api_key):
 def get_3drepologin(domain,teamspace,model):
     url = domain + "/api/me"
     headers = {
-    'Cookie': 'connect.sid=' + cookies['connect.sid']
+    'Cookie': cookies
     }
     login_response = requests.get(url, headers=headers)
     return login_response.status_code
@@ -82,7 +82,7 @@ if not cookies.ready():
     # Wait for the component to load and send us current cookies.
     st.stop()
 
-st.write("Current cookies:", cookies['connect.sid'])
+st.write("Current cookies:", cookies)
 
 login_response = get_3drepologin
 login_response_success = login_response == 200
