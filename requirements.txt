@@ -13,3 +13,4 @@ altair
 pandas
 scipy
 click
+streamlit-cookies-manager
