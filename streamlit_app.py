@@ -5,14 +5,15 @@ import json
 import os
 from io import BytesIO
 
+
 st.header("3D Repo Safetibase PowerPoint App")
 st.text("Insert your Model/Federation details below to generate a Powerpoint file of all the Risks")
 
 teamspace = st.text_input("Teamspace:")
 model = st.text_input("Model:")
 apiKey = st.text_input("API Key:")
-domain = st.text_input("Domain:")
-output = st.text_input("Output File Name:")
+domain = st.text_input("Domain:", value="https://www.3drepo.io")
+output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
 
 def get_3dreporisks(domain,teamspace,model,api_key):
     risk_response = requests.get(domain + "/api/"+teamspace+"/"+model+"/risks?key="+api_key)
