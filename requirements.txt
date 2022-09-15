@@ -14,3 +14,4 @@ pandas
 scipy
 click
 streamlit-cookies-manager
+extra-streamlit-components

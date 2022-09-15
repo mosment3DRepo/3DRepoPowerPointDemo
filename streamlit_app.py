@@ -1,35 +1,41 @@
-import streamlit as st
-from pptx import Presentation
+import os
 import requests
 import json
-import os
 from io import BytesIO
-from streamlit_cookies_manager import EncryptedCookieManager
 
-st.write("v1.07")
+import streamlit as st
+from streamlit.web.server import Server
 
-global cookies
+from pptx import Presentation
+import extra_streamlit_components as stx
 
-cookies = EncryptedCookieManager(
-    # You should really setup a long COOKIES_PASSWORD secret if you're running on Streamlit Cloud.
-    password=os.environ.get("COOKIES_PASSWORD", "My secret password"),
-)
+if "DEPLOY_TAG" in os.environ:
+    st.write(os.environ["DEPLOY_TAG"])
+
+@st.cache(allow_output_mutation=True)
+def get_manager():
+    return stx.CookieManager()
 
 def get_3dreporisks(domain,teamspace,model,api_key):
-    url = domain + "/api/"+teamspace+"/"+model+"/risks?key="+api_key
+    if connectsid:
+        url = domain + "/api/"+teamspace+"/"+model+"/risks"
+    else:
+        url = domain + "/api/"+teamspace+"/"+model+"/risks?key="+api_key
+
     headers = {
-    'Cookie': cookies
+        'Cookie': 'connect.sid=' + connectsid
     }
     risk_response = requests.get(url, headers=headers)
     risk_response_object = json.loads(risk_response.text)
     return risk_response_object
 
-def get_3drepologin(domain,teamspace,model):
+def get_3drepologin(domain, connectsid):
     url = domain + "/api/me"
     headers = {
-    'Cookie': cookies
+        'connect.sid': connectsid
     }
     login_response = requests.get(url, headers=headers)
+
     return login_response.status_code
 
 def insert(domain,teamspace,model,apiKey,output):
@@ -78,29 +84,27 @@ def insert(domain,teamspace,model,apiKey,output):
         file_name=fileName
     )
 
-if not cookies.ready():
-    # Wait for the component to load and send us current cookies.
-    st.stop()
+connectsid = ''
+domain = st.text_input("Domain:", value="https://staging.dev.3drepo.io")
+output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
 
-st.write("Current cookies:", cookies)
+if not st.experimental_user.email == 'test@localhost.com':
+    connectsid = st.experimental_user.email
+    login_response = get_3drepologin(domain,connectsid)
+    st.text(login_response)
 
-login_response = get_3drepologin
-login_response_success = login_response == 200
-
-
-st.header("3D Repo Safetibase PowerPoint App")
-st.text("Insert your Model/Federation details below to generate a Powerpoint file of all the Risks")
-
-teamspace = st.text_input("Teamspace:")
-model = st.text_input("Model:")
+    login_response_success = login_response == 200
 
 if not login_response_success:
     apiKey = st.text_input("API Key:")
 else:
     apiKey = ''
 
-domain = st.text_input("Domain:", value="https://www.3drepo.io")
-output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
+st.header("3D Repo Safetibase PowerPoint App")
+st.text("Insert your Model/Federation details below to generate a Powerpoint file of all the Risks")
+
+teamspace = st.text_input("Teamspace:")
+model = st.text_input("Model:")
 
 if st.button("Submit"):
     insert(domain,teamspace,model,apiKey,output)
