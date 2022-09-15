@@ -19,27 +19,33 @@ def get_manager():
 def get_3dreporisks(domain,teamspace,model,api_key):
     if connectsid:
         url = domain + "/api/"+teamspace+"/"+model+"/risks"
+        cookie = {
+            'connect.sid' : connectsid,
+        }
+        curSession = requests.Session() 
+        risk_response = curSession.get(url, cookies=cookie)
     else:
-        url = domain + "/api/"+teamspace+"/"+model+"/risks?key="+api_key
+        url = domain + "/api/"+teamspace+"/"+model+"/risks?" + needKey()
+        curSession = requests.Session() 
+        risk_response = curSession.get(url)
 
-    headers = {
-        'Cookie': 'connect.sid=' + connectsid
-    }
-    risk_response = requests.get(url, headers=headers)
     risk_response_object = json.loads(risk_response.text)
     return risk_response_object
 
 def get_3drepologin(domain, connectsid):
     url = domain + "/api/me"
-    headers = {
-        'connect.sid': connectsid
+    cookie = {
+        'connect.sid' : connectsid,
     }
-    login_response = requests.get(url, headers=headers)
-
-    return login_response.status_code
+    curSession = requests.Session() 
+    login_response = curSession.get(url, cookies=cookie)
+    return login_response
 
 def insert(domain,teamspace,model,apiKey,output):
 
+    if not teamspace and model:
+        return False
+        
     SLD_LAYOUT_TITLE_AND_CONTENT = 0
 
     prs = Presentation('Template.pptx')
@@ -61,7 +67,7 @@ def insert(domain,teamspace,model,apiKey,output):
         except:
             continue
         try:
-            imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + "?key=" + apiKey
+            imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + needKey()
             imageGet = requests.get(imageLocation)
             file = open("temp.png", "wb")
             file.write(imageGet.content)
@@ -88,16 +94,22 @@ connectsid = ''
 domain = st.text_input("Domain:", value="https://staging.dev.3drepo.io")
 output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
 
+def needKey():
+    if not login_response_success:
+        return "?key=" + apiKey
+    else:
+        return ""
+
 if not st.experimental_user.email == 'test@localhost.com':
     connectsid = st.experimental_user.email
     login_response = get_3drepologin(domain,connectsid)
-    st.text(login_response)
-
-    login_response_success = login_response == 200
+    # results = json.load(login_response.json())
+    login_response_success = login_response.status_code == 200
 
 if not login_response_success:
     apiKey = st.text_input("API Key:")
 else:
+    st.text("Logged in as : " + login_response.json()['username'])
     apiKey = ''
 
 st.header("3D Repo Safetibase PowerPoint App")
