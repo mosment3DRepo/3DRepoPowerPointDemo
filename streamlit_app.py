@@ -1,4 +1,5 @@
 import os
+from re import L
 import requests
 import json
 import uuid
@@ -10,6 +11,9 @@ from streamlit.web.server import Server
 from pptx import Presentation
 import extra_streamlit_components as stx
 
+st.set_page_config(page_title="tools", page_icon="https://www.3drepo.io/favicon.ico", layout="centered", initial_sidebar_state="auto", menu_items=None)
+st.header("3D Repo Safetibase PowerPoint App")
+
 if "DEPLOY_TAG" in os.environ:
     st.write(os.environ["DEPLOY_TAG"])
 
@@ -17,28 +21,26 @@ if "DEPLOY_TAG" in os.environ:
 def get_manager():
     return stx.CookieManager()
 
-def get_3dreporisks(domain,teamspace,model,api_key):
+def selfGet(url):
+    curSession = requests.Session() 
     if connectsid:
         cookie = {
             'connect.sid' : connectsid,
         }
-        url = domain + "/api/"+teamspace+"/"+model+"/risks"
-        risk_response = requests.get(url, cookies=cookie)
+        return curSession.get(url, cookies=cookie)
     else:
-        url = domain + "/api/"+teamspace+"/"+model+"/risks"+ "?" + needKey()
-        risk_response = requests.get(url)
+        url = url + "?" + needKey()
+        return curSession.get(url)
 
+def get_3dreporisks(domain,teamspace,model,api_key):
+    url = domain + "/api/"+teamspace+"/"+model+"/risks"
+    risk_response = selfGet(url)
     risk_response_object = json.loads(risk_response.text)
     return risk_response_object
 
-
 def get_3drepologin(domain, connectsid):
     url = domain + "/api/me"
-    cookie = {
-        'connect.sid' : connectsid,
-    }
-    curSession = requests.Session() 
-    login_response = curSession.get(url, cookies=cookie)
+    login_response = selfGet(url)
     return login_response
 
 def insert(domain,teamspace,model,apiKey,output):
@@ -57,50 +59,81 @@ def insert(domain,teamspace,model,apiKey,output):
         if risks['status'] == 401:
             st.text(risks)
             return False
+    
+    if risks:
+        for risk in risks:
+            slide = prs.slides.add_slide(slide_layout)
+            name = slide.placeholders[0]
+            name.text = risk['name']
 
-    for risk in risks:
+            url = slide.placeholders[15]
+            urlText = domain + "/viewer/" + teamspace + "/" + model + "?risk=" + risk['_id'] 
+            url.text = urlText
+            try:
+                desc = slide.placeholders[13]
+                desc.text = risk['desc']
+                image = slide.placeholders[14]
+            except:
+                continue
+            try:
+                imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + "?" + needKey()
+                imageGet = requests.get(imageLocation)
+                filename = str(uuid.uuid4())
+                file = open(filename, "wb")
+                file.write(imageGet.content)
+                file.close()
+                image.insert_picture(filename)
+            except:
+                continue
+            try:
+                os.remove(filename)
+            except:
+                continue
+        fileName = output + '.pptx'
+        outputFile = BytesIO()
+        prs.save(outputFile)
+        outputFile.seek(0)
 
-        slide = prs.slides.add_slide(slide_layout)
-        name = slide.placeholders[0]
-        name.text = risk['name']
-
-        url = slide.placeholders[15]
-        urlText = domain + "/viewer/" + teamspace + "/" + model + "?risk=" + risk['_id'] 
-        url.text = urlText
-        try:
-            desc = slide.placeholders[13]
-            desc.text = risk['desc']
-            image = slide.placeholders[14]
-        except:
-            continue
-        try:
-            imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + "?" + needKey()
-            imageGet = requests.get(imageLocation)
-            filename = str(uuid.uuid4())
-            file = open(filename, "wb")
-            file.write(imageGet.content)
-            file.close()
-            image.insert_picture(filename)
-        except:
-            continue
-        try:
-            os.remove(filename)
-        except:
-            continue
-    fileName = output + '.pptx'
-    outputFile = BytesIO()
-    prs.save(outputFile)
-    outputFile.seek(0)
-
-    st.download_button(
-        label="Download data as Powerpoint",
-        data=outputFile,
-        file_name=fileName
-    )
+        st.download_button(
+            label="Download data as Powerpoint",
+            data=outputFile,
+            file_name=fileName
+        )
+    else:
+        st.write("No risks found chosen container.")
 
 connectsid = ''
 domain = st.text_input("Domain:", value="https://staging.dev.3drepo.io")
 output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
+
+def loadProjects(teamspace):
+    url = domain + "/api/" + teamspace + "/projects"
+    projects = selfGet(url)
+    try:
+        return json.loads(projects.text)
+    except Exception as err:
+        st.write(projects.text)
+        st.write(projects)
+        st.write(err)
+
+def loadModels(teamspace,project):
+    url = domain + "/api/" + teamspace + "/projects/" + project + "/models"
+    models = selfGet(url)
+    try:
+        return json.loads(models.text)
+    except Exception as err:
+        st.write(models)
+        st.write(err)
+
+def loadAll(teamspace):
+    url = domain + "/api/" + teamspace + ".json"
+    all = selfGet(url)
+    try:
+        return json.loads(all.text)
+    except Exception as err:
+        st.write(all)
+        st.write(err)
+
 
 def needKey():
     if apiKey:
@@ -113,6 +146,51 @@ if not st.experimental_user.email == 'test@localhost.com':
     login_response = get_3drepologin(domain,connectsid)
     # results = json.load(login_response.json())
     login_response_success = login_response.status_code == 200
+    teamspace = login_response.json()['username']
+    everything = loadAll(teamspace)
+    # st.write(everything)
+    teamspaces = {}
+    for id,accounts in enumerate(everything['accounts']):
+        teamspaces[accounts['account']] = id
+else:
+    everything = []
+
+if everything:
+    st.session_state.current_teamspace = st.selectbox(
+        'Which teamspace are we interested in?',
+        teamspaces.keys()
+        )
+    # st.write('You selected:', st.session_state.current_teamspace)
+else:
+    st.session_state.current_teamspace = ""
+
+if st.session_state.current_teamspace:
+    projectsList = {}
+    for id,projects in enumerate(everything['accounts'][teamspaces[st.session_state.current_teamspace]]['projects']):
+        projectsList[projects['name']] = id
+
+    st.session_state.current_project = st.selectbox(
+        'Which project are we interested in?',
+        projectsList.keys()
+        )
+    # st.write('You selected:', st.session_state.current_project)
+else:
+    st.session_state.current_project = ""
+
+if st.session_state.current_project:
+    modelsList = {}
+    # st.write(teamspaces)
+    # st.write(teamspaces[st.session_state.current_teamspace])
+    for id,models in enumerate(everything['accounts'][teamspaces[st.session_state.current_teamspace]]['projects'][projectsList[st.session_state.current_project]]['models']):
+        # st.write(models)
+        modelsList[models['name']] = models['model']
+    st.session_state.current_model = st.selectbox(
+        'Which container are we interested in?',
+        modelsList.keys()
+        )
+    # st.write('You selected:', st.session_state.current_model)
+else:
+    st.session_state.current_model = ""
 
 if not login_response_success:
     apiKey = st.text_input("API Key:")
@@ -123,11 +201,19 @@ else:
 if apiKey:
     connectsid = ''
 
-st.header("3D Repo Safetibase PowerPoint App")
-st.text("Insert your Model/Federation details below to generate a Powerpoint file of all the Risks")
 
-teamspace = st.text_input("Teamspace:")
-model = st.text_input("Model:")
+if not st.session_state.current_teamspace:
+    st.text("Insert your Model/Federation details below to generate a Powerpoint file of all the Risks")
+
+if st.session_state.current_teamspace:
+    teamspace = st.session_state.current_teamspace
+else:
+    teamspace = st.text_input("Teamspace:")
+
+if st.session_state.current_model:
+    model = modelsList[st.session_state.current_model]
+else:
+    model = st.text_input("Model:")
 
 if st.button("Submit"):
     insert(domain,teamspace,model,apiKey,output)
