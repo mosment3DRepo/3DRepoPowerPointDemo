@@ -65,7 +65,7 @@ def insert(domain,teamspace,model,apiKey,output):
         name.text = risk['name']
 
         url = slide.placeholders[15]
-        urlText = domain + "/viewer/" + teamspace + "/" + model + "?risk=" + risk['_id'] + "?" + needKey()
+        urlText = domain + "/viewer/" + teamspace + "/" + model + "?risk=" + risk['_id'] 
         url.text = urlText
         try:
             desc = slide.placeholders[13]
