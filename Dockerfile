@@ -11,8 +11,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# hopefully cache the requirements
+ADD ./requirements.txt ./requirements.txt 
+# RUN pip3 install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip3 install -r requirements.txt
+
 COPY . .
 
-RUN pip3 install -r requirements.txt
-
-ENTRYPOINT ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["python", "-m", "main", "run", "streamlit_app.py","--server.port=8501", "--server.address=0.0.0.0"]
