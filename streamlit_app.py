@@ -217,5 +217,12 @@ else:
 if st.button("Submit"):
     insert(domain,teamspace,model,apiKey,output)
 
+
+
+
 if "DEPLOY_TAG" in os.environ:
-    st.write(os.environ["DEPLOY_TAG"])
+    footer="Developed with ❤ by 3D Repo" + " :: %s " % os.environ["DEPLOY_TAG"]
+    st.caption(footer)
+
+
+
