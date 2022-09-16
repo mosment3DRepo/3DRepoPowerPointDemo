@@ -73,19 +73,22 @@ def insert(domain,teamspace,model,apiKey,output):
             except:
                 continue
             try:
-                imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + "?" + needKey()
-                imageGet = requests.get(imageLocation)
-                filename = str(uuid.uuid4())
-                file = open(filename, "wb")
+                imageLocation = domain + "/api/" + risk['viewpoint']['screenshot']
+                imageGet = selfGet(imageLocation)
+                # imgfile = str(uuid.uuid4()) + ".png"
+                file = open("temp.png", "wb")
                 file.write(imageGet.content)
                 file.close()
-                image.insert_picture(filename)
-            except:
+                image.insert_picture("temp.png")
+            except Exception as err:
+                st.write(err)
+                st.write(imageGet.content)
                 continue
             try:
-                os.remove(filename)
+                os.remove("temp.png")
             except:
                 continue
+
         fileName = output + '.pptx'
         outputFile = BytesIO()
         prs.save(outputFile)
