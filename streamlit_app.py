@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import uuid
 from io import BytesIO
 
 import streamlit as st
@@ -18,19 +19,18 @@ def get_manager():
 
 def get_3dreporisks(domain,teamspace,model,api_key):
     if connectsid:
-        url = domain + "/api/"+teamspace+"/"+model+"/risks"
         cookie = {
             'connect.sid' : connectsid,
         }
-        curSession = requests.Session() 
-        risk_response = curSession.get(url, cookies=cookie)
+        url = domain + "/api/"+teamspace+"/"+model+"/risks"
+        risk_response = requests.get(url, cookies=cookie)
     else:
-        url = domain + "/api/"+teamspace+"/"+model+"/risks?" + needKey()
-        curSession = requests.Session() 
-        risk_response = curSession.get(url)
+        url = domain + "/api/"+teamspace+"/"+model+"/risks"+ "?" + needKey()
+        risk_response = requests.get(url)
 
     risk_response_object = json.loads(risk_response.text)
     return risk_response_object
+
 
 def get_3drepologin(domain, connectsid):
     url = domain + "/api/me"
@@ -53,12 +53,19 @@ def insert(domain,teamspace,model,apiKey,output):
 
     risks = get_3dreporisks(domain,teamspace,model,apiKey)
 
+    if 'status' in risks:
+        if risks['status'] == 401:
+            st.text(risks)
+            return False
+
     for risk in risks:
+
         slide = prs.slides.add_slide(slide_layout)
         name = slide.placeholders[0]
         name.text = risk['name']
+
         url = slide.placeholders[15]
-        urlText = domain + "/viewer/" + teamspace + "/" + model + "?risk=" + risk['_id']
+        urlText = domain + "/viewer/" + teamspace + "/" + model + "?risk=" + risk['_id'] + "?" + needKey()
         url.text = urlText
         try:
             desc = slide.placeholders[13]
@@ -67,16 +74,17 @@ def insert(domain,teamspace,model,apiKey,output):
         except:
             continue
         try:
-            imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + needKey()
+            imageLocation = domain + "/api/" + risk['viewpoint']['screenshot'] + "?" + needKey()
             imageGet = requests.get(imageLocation)
-            file = open("temp.png", "wb")
+            filename = str(uuid.uuid4())
+            file = open(filename, "wb")
             file.write(imageGet.content)
             file.close()
-            image.insert_picture("temp.png")
+            image.insert_picture(filename)
         except:
             continue
         try:
-            os.remove("temp.png")
+            os.remove(filename)
         except:
             continue
     fileName = output + '.pptx'
@@ -95,8 +103,8 @@ domain = st.text_input("Domain:", value="https://staging.dev.3drepo.io")
 output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
 
 def needKey():
-    if not login_response_success:
-        return "?key=" + apiKey
+    if apiKey:
+        return "key=" + apiKey
     else:
         return ""
 
@@ -111,6 +119,9 @@ if not login_response_success:
 else:
     st.text("Logged in as : " + login_response.json()['username'])
     apiKey = ''
+
+if apiKey:
+    connectsid = ''
 
 st.header("3D Repo Safetibase PowerPoint App")
 st.text("Insert your Model/Federation details below to generate a Powerpoint file of all the Risks")
