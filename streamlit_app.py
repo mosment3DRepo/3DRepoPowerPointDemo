@@ -154,6 +154,7 @@ if not st.experimental_user.email == 'test@localhost.com':
         teamspaces[accounts['account']] = id
 else:
     everything = []
+    login_response_success = False
 
 if everything:
     st.session_state.current_teamspace = st.selectbox(
