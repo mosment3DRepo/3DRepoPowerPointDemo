@@ -217,12 +217,15 @@ else:
 if st.button("Submit"):
     insert(domain,teamspace,model,apiKey,output)
 
-
-
-
 if "DEPLOY_TAG" in os.environ:
-    footer="Developed with ❤ by 3D Repo" + " :: %s " % os.environ["DEPLOY_TAG"]
-    st.caption(footer)
+    hideFooter = """
+    <style>
+    footer:after{
+        content: ' -  Copyright @ 2022 3D Repo :: %s'
+    }
+    </style>
+    """ % os.environ["DEPLOY_TAG"]
+    st.markdown(hideFooter, unsafe_allow_html=True)
 
 
 
