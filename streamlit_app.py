@@ -103,7 +103,13 @@ def insert(domain,teamspace,model,apiKey,output):
         st.write("No risks found chosen container.")
 
 connectsid = ''
-domain = st.text_input("Domain:", value="https://staging.dev.3drepo.io")
+
+if "DEPLOY_API" in os.environ:
+    domainValue = "https://" + os.environ["DEPLOY_API"]
+else:
+    domainValue = "https://www.3drepo.io"
+
+domain = st.text_input("Domain:", value = domainValue)
 output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
 
 def loadProjects(teamspace):
