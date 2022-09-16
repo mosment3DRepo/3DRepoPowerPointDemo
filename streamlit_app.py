@@ -14,9 +14,6 @@ import extra_streamlit_components as stx
 st.set_page_config(page_title="tools", page_icon="https://www.3drepo.io/favicon.ico", layout="centered", initial_sidebar_state="auto", menu_items=None)
 st.header("3D Repo Safetibase PowerPoint App")
 
-if "DEPLOY_TAG" in os.environ:
-    st.write(os.environ["DEPLOY_TAG"])
-
 @st.cache(allow_output_mutation=True)
 def get_manager():
     return stx.CookieManager()
@@ -150,14 +147,15 @@ def needKey():
 if not st.experimental_user.email == 'test@localhost.com':
     connectsid = st.experimental_user.email
     login_response = get_3drepologin(domain,connectsid)
-    # results = json.load(login_response.json())
     login_response_success = login_response.status_code == 200
-    teamspace = login_response.json()['username']
-    everything = loadAll(teamspace)
-    # st.write(everything)
-    teamspaces = {}
-    for id,accounts in enumerate(everything['accounts']):
-        teamspaces[accounts['account']] = id
+    if login_response_success:
+        teamspace = login_response.json()['username']
+        everything = loadAll(teamspace)
+        teamspaces = {}
+        for id,accounts in enumerate(everything['accounts']):
+            teamspaces[accounts['account']] = id
+    else:
+        everything = []
 else:
     everything = []
     login_response_success = False
@@ -167,7 +165,6 @@ if everything:
         'Which teamspace are we interested in?',
         teamspaces.keys()
         )
-    # st.write('You selected:', st.session_state.current_teamspace)
 else:
     st.session_state.current_teamspace = ""
 
@@ -180,22 +177,17 @@ if st.session_state.current_teamspace:
         'Which project are we interested in?',
         projectsList.keys()
         )
-    # st.write('You selected:', st.session_state.current_project)
 else:
     st.session_state.current_project = ""
 
 if st.session_state.current_project:
     modelsList = {}
-    # st.write(teamspaces)
-    # st.write(teamspaces[st.session_state.current_teamspace])
     for id,models in enumerate(everything['accounts'][teamspaces[st.session_state.current_teamspace]]['projects'][projectsList[st.session_state.current_project]]['models']):
-        # st.write(models)
         modelsList[models['name']] = models['model']
     st.session_state.current_model = st.selectbox(
         'Which container are we interested in?',
         modelsList.keys()
         )
-    # st.write('You selected:', st.session_state.current_model)
 else:
     st.session_state.current_model = ""
 
@@ -225,3 +217,5 @@ else:
 if st.button("Submit"):
     insert(domain,teamspace,model,apiKey,output)
 
+if "DEPLOY_TAG" in os.environ:
+    st.write(os.environ["DEPLOY_TAG"])
