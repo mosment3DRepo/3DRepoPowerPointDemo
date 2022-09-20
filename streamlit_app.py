@@ -1,12 +1,12 @@
-import os
+import os, io
 from re import L
 import requests
 import json
 import uuid
 from io import BytesIO
+import imghdr
 
 import streamlit as st
-from streamlit.web.server import Server
 
 from pptx import Presentation
 import extra_streamlit_components as stx
@@ -29,18 +29,25 @@ def selfGet(url):
         url = url + "?" + needKey()
         return curSession.get(url)
 
-def get_3dreporisks(domain,teamspace,model,api_key):
+def seek_size(f):
+    pos = f.tell()
+    f.seek(0, io.SEEK_END)
+    size = f.tell()
+    f.seek(pos) # back to where we were
+    return size
+
+def get_3dreporisks(domain,teamspace,model):
     url = domain + "/api/"+teamspace+"/"+model+"/risks"
     risk_response = selfGet(url)
     risk_response_object = json.loads(risk_response.text)
     return risk_response_object
 
-def get_3drepologin(domain, connectsid):
+def get_3drepologin(domain):
     url = domain + "/api/me"
     login_response = selfGet(url)
     return login_response
 
-def insert(domain,teamspace,model,apiKey,output):
+def insert(domain,teamspace,model,output):
 
     if not teamspace and model:
         return False
@@ -50,7 +57,7 @@ def insert(domain,teamspace,model,apiKey,output):
     prs = Presentation('Template.pptx')
     slide_layout = prs.slide_layouts[SLD_LAYOUT_TITLE_AND_CONTENT]
 
-    risks = get_3dreporisks(domain,teamspace,model,apiKey)
+    risks = get_3dreporisks(domain,teamspace,model)
 
     if 'status' in risks:
         if risks['status'] == 401:
@@ -69,26 +76,28 @@ def insert(domain,teamspace,model,apiKey,output):
             try:
                 desc = slide.placeholders[13]
                 desc.text = risk['desc']
-                image = slide.placeholders[14]
             except:
                 continue
-            try:
-                imageLocation = domain + "/api/" + risk['viewpoint']['screenshot']
-                imageGet = selfGet(imageLocation)
-                # imgfile = str(uuid.uuid4()) + ".png"
-                file = open("temp.png", "wb")
-                file.write(imageGet.content)
-                file.close()
-                image.insert_picture("temp.png")
-            except Exception as err:
-                # st.write(imageLocation)
-                # st.write(err)
-                # st.write(risk)
-                continue
-            try:
-                os.remove("temp.png")
-            except:
-                continue
+
+            if 'screenshot' in risk['viewpoint']:
+                try:
+                    imageLocation = domain + "/api/" + risk['viewpoint']['screenshot']
+                    imageGet = selfGet(imageLocation)
+                    imgfile = str(uuid.uuid4()) + ".png"
+                    file = open(imgfile, "wb")
+                    file.write(imageGet.content)
+                    file.close()
+                    if imghdr.what(imgfile):
+                        image = slide.placeholders[14]
+                        image.insert_picture(imgfile)
+
+                except Exception as err:
+                    st.write(err)
+                    continue
+                try:
+                    os.remove(imgfile)
+                except:
+                    continue
 
         fileName = output + '.pptx'
         outputFile = BytesIO()
@@ -102,16 +111,6 @@ def insert(domain,teamspace,model,apiKey,output):
         )
     else:
         st.write("No risks found chosen container.")
-
-connectsid = ''
-
-if "DEPLOY_API" in os.environ:
-    domainValue = "https://" + os.environ["DEPLOY_API"]
-else:
-    domainValue = "https://www.3drepo.io"
-
-domain = st.text_input("Domain:", value = domainValue)
-output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
 
 def loadProjects(teamspace):
     url = domain + "/api/" + teamspace + "/projects"
@@ -141,16 +140,29 @@ def loadAll(teamspace):
         st.write(all)
         st.write(err)
 
-
 def needKey():
     if apiKey:
         return "key=" + apiKey
     else:
         return ""
 
+############################################################
+# program starts here
+############################################################
+
+connectsid = ''
+
+if "DEPLOY_API" in os.environ:
+    domainValue = "https://" + os.environ["DEPLOY_API"]
+else:
+    domainValue = "https://www.3drepo.io"
+
+domain = st.text_input("Domain:", value = domainValue)
+output = st.text_input("Output File Name:", value = "3D Repo Safetibase Export")
+
 if not st.experimental_user.email == 'test@localhost.com':
     connectsid = st.experimental_user.email
-    login_response = get_3drepologin(domain,connectsid)
+    login_response = get_3drepologin(domain)
     login_response_success = login_response.status_code == 200
     if login_response_success:
         teamspace = login_response.json()['username']
@@ -219,7 +231,7 @@ else:
     model = st.text_input("Model:")
 
 if st.button("Submit"):
-    insert(domain,teamspace,model,apiKey,output)
+    insert(domain,teamspace,model,output)
 
 if "DEPLOY_TAG" in os.environ:
     hideFooter = """
